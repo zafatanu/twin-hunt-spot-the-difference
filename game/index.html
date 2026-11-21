@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Twin Hunt — spot the difference</title>
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div id="stage">
+  <header id="topBar">
+    <div class="brand">
+      <span class="brand-mark">◐</span><span class="brand-word">TWIN<b>HUNT</b></span>
+      <span class="brand-tag">spot the difference</span>
+    </div>
+    <div class="level-name" id="levelName">Midnight Spice Bazaar</div>
+    <div class="hud-clock" id="clockBox">
+      <span class="hud-label">TIME</span>
+      <span class="hud-value" id="clock">00:00</span>
+    </div>
+  </header>
+
+  <main id="board">
+    <section class="panel" id="panelLeft" aria-label="left panel">
+      <canvas class="scene" id="sceneLeft" width="590" height="350"></canvas>
+      <span class="panel-tag">LEFT</span>
+    </section>
+    <section class="panel" id="panelRight" aria-label="right panel">
+      <canvas class="scene" id="sceneRight" width="590" height="350"></canvas>
+      <span class="panel-tag">RIGHT</span>
+    </section>
+  </main>
+
+  <footer id="bottomBar">
+    <div class="bar-left">
+      <button class="chip" id="levelsBtn" type="button">LEVELS <i class="chip-ico">▣</i></button>
+      <span class="strikes" id="strikesLabel">STRIKES <span id="strikeDots">○○○</span></span>
+    </div>
+    <div class="remaining" id="counter">
+      <span class="remaining-num" id="remainingNum">8</span>
+      <span class="remaining-word" id="remainingWord">to find</span>
+    </div>
+    <div class="bar-right">
+      <span class="score" id="scoreLabel">SCORE <b id="scoreNum">0</b></span>
+      <button class="chip" id="hintBtn" type="button">HINT <i class="chip-ico">💡<b id="hintLeft">3</b></i></button>
+    </div>
+  </footer>
+</div>
+
+<div id="overlay" hidden></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
