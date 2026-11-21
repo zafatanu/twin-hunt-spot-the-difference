@@ -372,6 +372,10 @@ function renderWin() {
 
 function renderLevels() {
   ui.overlay.hidden = false;
+  // The card canvases do not exist until the markup below is in the overlay, so
+  // the thumbs may not have been built yet (or built before a vote). Fill them
+  // here if they are missing; the copy loop needs a source to draw from.
+  if (THUMB_SRC.length === 0) buildThumbs();
   const cards = SCENES.map((scene, i) => {
     const done = best.has(scene.id);
     const active = state.shot === 2 && scene.id === state.scene.id;
@@ -403,12 +407,12 @@ function renderLevels() {
       </div>
     </div>`;
 
-  for (const { scene, src } of THUMB_SRC) {
-    const i = SCENES.indexOf(scene);
+  SCENES.forEach((scene, i) => {
     const thumb = ui.overlay.querySelector(`[data-thumb="${i}"]`);
-    if (thumb === null) continue;
+    const src = THUMB_SRC.find((entry) => entry.scene === scene)?.src;
+    if (thumb === null || src === undefined) return;
     thumb.getContext('2d').drawImage(src, 0, 0);
-  }
+  });
 }
 
 // --------------------------------------------------------------- boot & staging
