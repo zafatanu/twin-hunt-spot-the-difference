@@ -27,7 +27,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = process.env.MAKEFUN_OUTPUT_DIR ?? join(ROOT, 'output');
 const CHROME = process.env.MAKEFUN_CHROME ?? '/opt/meta-chromium/chrome';
 
-/** The caps gate.json hands the scorer: the text, the imagesmx and the game tree. */
+/** The caps gate.json hands the scorer: the text, the images and the game tree. */
 const CAPS = {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },
@@ -84,21 +84,18 @@ function copyTree(from, to) {
 
 const PATCH_FROM = 'export function boot() {';
 const PATCH_TO = [
-  'export function boot() {',
-  '  if (staged === null) {
-  '  state.scene = sceneById(staged.scene) ?? state.scene;',
-  '  state.found = new Set(staged.found ?? []);',
-  '  state.hint = staged.hint ?? null;',
-  '  state.hints = HINTS_PER_LEVEL - (staged.hint === null ? 0 : 1);',
-  '  state.shot = staged.number;',
-  '  state.clockText = staged.clock ?? null;',
-  '  if (staged.levels === true) {',
-  '    state.mode = \'levels\';',
+  PATCH_FROM,
+  '  const staged = stagedShot();',
+  '  if (staged !== null) {',
+  '    state.scene = sceneById(staged.scene) ?? state.scene;',
+  '    state.found = new Set(staged.found ?? []);',
+  '    state.hint = staged.hint ?? null;',
+  '    state.hints = HINTS_PER_LEVEL - (staged.hint === null ? 0 : 1);',
+  '    state.shot = staged.number;',
+  '    state.mode = staged.levels === true ? \'levels\' : \'play\';',
+  '    best.set(state.scene.id, staged.best);',
   '    buildThumbs();',
-  '    for (const [id, percent] of Object.entries(staged.progress ?? {})) {',
-  '      const scene = sceneById(id);',
-  '      if (scene !== null) best.set(scene.id, Math.round((percent / 100) * 95));',
-  '    }',
+  '    return;',
   '  }',
 ].join('\n');
 
@@ -110,3 +107,15 @@ function writeStage() {
   if (!src.includes(PATCH_FROM)) throw new Error('main.ts: game/src/main.js has no boot() to stage a shot in');
   writeFileSync(mainPath, src.replace(PATCH_FROM, PATCH_TO));
 }
+
+// ---------------------------------------------------------------- the shots
+
+/**
+ * The staged page's URL. Chrome is given the file itself and the shot through
+ * ?shot=N; --window-size and --force-device-scale-factor fix the pixels.
+ */
+function shotUrl(shot) {
+  const page = join(OUT, '.stage', 'index.html').split(sep$).join('/');
+  return `file://${page}?shot=${shot}`;
+}
+
