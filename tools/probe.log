@@ -1,1 +1,0 @@
-render ok: Painter, circleAt, ellipseAt, makeLinearGradient, makeRadialGradient, polygon, roundRect, scatterMarks, starPath
