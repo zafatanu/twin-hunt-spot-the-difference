@@ -18,14 +18,17 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildDossier } from './vendor/makefun-game.ts';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = process.env.MAKEFUN_OUTPUT_DIR ?? join(ROOT, 'output');
-const CHROME = process.env.MAKEFUN_CHROME ?? '/opt/meta-chromium/chrome';
+/** The stock browsers that render here; the first that exists wins, env or fallback. */
+const CHROME_DEFAULT = '/home/hatch/.agent-browser/browsers/chrome-157.0.8103.78/chrome';
+const CHROME_FALLBACK = '/opt/meta-chromium/chrome';
+const CHROME = process.env.MAKEFUN_CHROME ?? (existsSync(CHROME_DEFAULT) ? CHROME_DEFAULT : CHROME_FALLBACK);
 /** The caps gate.json hands the scorer: the text, the images and the game tree. */
 const CAPS = {
   text_max_bytes: 163840,
@@ -75,48 +78,26 @@ function copyTree(from, to) {
 
 // ---------------------------------------------------------------- the page
 //
-// game/src/main.js carries a `?shot=` staging hook (SHOTS, stagedShot, and
-// state.shot) that no boot code calls yet, so the page plays a normal level and
-// ignores ?shot=. The hook is exactly what the shots need; instead of changing
-// the game on the way to a screenshot, the build patches one line of a copy of
-// it. Nothing else in game/ is rewritten.
-
-const PATCH_FROM = 'export function boot() {';
-const PATCH_TO = [
-  PATCH_FROM,
-  '  const staged = stagedShot();',
-  '  if (staged !== null) {',
-  '    state.scene = sceneById(staged.scene) ?? state.scene;',
-  '    state.found = new Set(staged.found ?? []);',
-  '    state.hint = staged.hint ?? null;',
-  '    state.hints = HINTS_PER_LEVEL - (staged.hint === null ? 0 : 1);',
-  '    state.shot = staged.number;',
-  '    state.mode = staged.levels === true ? \'levels\' : \'play\';',
-  '    best.set(state.scene.id, staged.best);',
-  '    buildThumbs();',
-  '    return;',
-  '  }',
-].join('\n');
+// game/src/main.js already stages itself: its boot() reads `?shot=N` through
+// stagedShot(), hands the view to paintStaged() and plays nothing, so the page
+// is a still of the game and not a level played to a stop. The build only
+// copies game/ next to the shots it is taking and loads index.html with
+// ?shot=N; it never rewrites the game's scripts.
 
 function writeStage(browser) {
-  const stage = join(OUT, '.stage');
-  copyTree(join(OUT, 'game'), stage);
-  const mainPath = join(stage, 'src', 'main.js');
-  const src = readFileSync(mainPath, 'utf8');
-  if (!src.includes(PATCH_FROM)) throw new Error('main.ts: game/src/main.js has no boot() to stage a shot in');
-  writeFileSync(mainPath, src.replace(PATCH_FROM, PATCH_TO));
+  copyTree(join(OUT, 'game'), join(OUT, '.stage'));
   void browser;
 }
 
 // ---------------------------------------------------------------- the shots
 
 /**
- * The staged page's URL. Chrome is given the file itself and the shot through
- * ?shot=N; --window-size and --force-device-scale-factor fix the pixels.
+ * The staged page's URL: file:// plus the ?shot=N view. An absolute POSIX path
+ * keeps /output, a temp directory and this checkout all spelling it the same.
  */
 function shotUrl(shot) {
-  const page = join(OUT, '.stage', 'index.html').split(sep).join('/');
-  return `${page}?shot=${shot}`;
+  const page = resolve(OUT, '.stage', 'index.html').split(sep).join('/');
+  return `file://${page}?shot=${shot}`;
 }
 
 /**
