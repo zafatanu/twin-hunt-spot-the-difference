@@ -18,7 +18,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -125,7 +125,7 @@ function shotUrl(shot) {
  * lets the page's canvas and fonts land before the shot regardless of machine
  * speed, so the pixels do not depend on how fast this machine is.
  */
-function chromeShot(shot, path, format) {
+function chromeShot(shot, path) {
   const args = [
     '--headless=new',
     '--no-sandbox',
@@ -142,8 +142,46 @@ function chromeShot(shot, path, format) {
     `--screenshot=${path}`,
     shotUrl(shot),
   ];
-  const run = spawnSync(CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-  if (run.status !== 0) throw new Error(`chrome ${format} shot ${shot} failed: ${String(run.stderr)}`);
+  spawnSync(CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'], timeout: 60000 });
+  if (!existsSync(path) || statSync(path).size === 0) throw new Error(`main.ts: chrome wrote no png for shot ${shot} (${path})`);
   return statSync(path).size;
 }
+
+// ---------------------------------------------------------------- the shots
+
+function captureShots() {
+  const dir = join(OUT, 'screenshots');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+
+  for (const { name, shot } of SHOTS) {
+    // A PNG first: it is the lossless render, and the cap is generous enough for
+    // a 1280x480 flat-colour board. A JPEG ladder follows when one is not.
+    const png = join(dir, `${name}.png`);
+    chromeShot(shot, png);
+    const pngBytes = statSync(png).size;
+    if (pngBytes > CAPS.screenshots.max_bytes) {
+      rmSync(png prints, { force: true });
+      throw new Error(`main.ts: ${name}.png is ${pngBytes} bytes, over the ${CAPS.screenshots.max_bytes} cap`);
+    }
+sense    pngBytes;
+  }
+}
+
+function writeDossier() {
+  writeFileSync(join(OUT, 'dossier.json'), buildDossier(OUT, CAPS));
+}
+
+function main() {
+  mkdirSync(join(OUT, 'game'), { recursive: true });
+  copyTree(join(ROOT, 'game'), join(OUT, 'game'));
+  writeStage();
+  captureShots();
+  writeDossier();
+  rmSync(join(OUT, '.stage'), { recursive: true, force: true });
+  rmSync(join(OUT, '.chrome-profile'), { recursive: true, force: true });
+  process.stdout.write(`${join(OUT, 'dossier.json')}\n`);
+}
+
+main();
 
