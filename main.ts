@@ -115,7 +115,35 @@ function writeStage() {
  * ?shot=N; --window-size and --force-device-scale-factor fix the pixels.
  */
 function shotUrl(shot) {
-  const page = join(OUT, '.stage', 'index.html').split(sep$).join('/');
+  const page = join(OUT, '.stage', 'index.html').split(sep).join('/');
   return `file://${page}?shot=${shot}`;
+}
+
+/**
+ * Chrome's own --screenshot: one process per view, the staged page loaded with
+ * ?shot=N, the 1280x480 viewport written straight to `path`. --virtual-time-budget
+ * lets the page's canvas and fonts land before the shot regardless of machine
+ * speed, so the pixels do not depend on how fast this machine is.
+ */
+function chromeShot(shot, path, format) {
+  const args = [
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    '--force-device-scale-factor=1',
+    '--force-color-profile=srgb',
+    '--disable-font-subpixel-positioning',
+    '--font-render-hinting=none',
+    '--allow-file-access-from-files',
+    '--user-data-dir=' + join(OUT, '.chrome-profile'),
+    `--window-size=${VIEW.width},${VIEW.height}`,
+    '--virtual-time-budget=3000',
+    `--screenshot=${path}`,
+    shotUrl(shot),
+  ];
+  const run = spawnSync(CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  if (run.status !== 0) throw new Error(`chrome ${format} shot ${shot} failed: ${String(run.stderr)}`);
+  return statSync(path).size;
 }
 
