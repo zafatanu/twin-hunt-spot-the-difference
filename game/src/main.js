@@ -229,7 +229,7 @@ function findAt(x, y) {
   audio.found();
   render();
   bumpCounter();
-  if remainingCount() === 0) setTimeout(winLevel, 500);
+  if (remainingCount() === 0) setTimeout(winLevel, 500);
 }
 
 function miss(x, y) {
