@@ -227,9 +227,10 @@ function startLevel(scene, seconds = 0) {
   state.seconds = seconds;
   state.ticking = false;
   state.tickAt = 0;
+  // Stop any tick loop left running by the pair before this one.
+  ui.clock.textContent = clockText(seconds);
   ui.overlay.hidden = true;
   ui.overlay.innerHTML = '';
-  state.scene;
   render();
 }
 
@@ -251,6 +252,8 @@ function hitTest(x, y) {
 }
 
 function findAt(x, y) {
+  // The win card is a layer over the board, not a mode: a click through it
+  // must never reach a panel and turn a finished level into a strike.
   if (state.mode !== 'play') return;
   const hit = hitTest(x, y);
   if (hit === null) {
@@ -309,6 +312,17 @@ function startClock() {
   if (state.ticking || state.shot !== 0) return;
   state.ticking = true;
   state.tickAt = performance.now();
+  tick();
+}
+
+/** Advance the count-up clock while a level is being played; stop on win or a staged shot. */
+function tick() {
+  if (!state.ticking) return;
+  const now = performance.now();
+  state.seconds += Math.floor((now - state.tickAt) / 1000);
+  state.tickAt = now;
+  ui.clock.textContent = clockText(state.seconds);
+  requestAnimationFrame(tick);
 }
 
 function winLevel() {

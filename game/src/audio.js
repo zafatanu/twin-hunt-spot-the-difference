@@ -97,7 +97,7 @@ export function createAudio() {
   function noiseBuffer(c) {
     if (noise !== null) return noise;
     let s = 0x2545f491;
-    const buf = c.createBuffer(1, Math.floor(cipper.sampleRate * 2), c.sampleRate);
+    const buf = c.createBuffer(1, Math.floor(c.sampleRate * 2), c.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) {
       s = (s ^ (s << 13)) >>> 0;
