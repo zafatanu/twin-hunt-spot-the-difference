@@ -17,7 +17,7 @@
 // with a fixed profile and a fixed window, so two runs write identical trees.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,7 +26,6 @@ import { buildDossier } from './vendor/makefun-game.ts';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = process.env.MAKEFUN_OUTPUT_DIR ?? join(ROOT, 'output');
 const CHROME = process.env.MAKEFUN_CHROME ?? '/opt/meta-chromium/chrome';
-
 /** The caps gate.json hands the scorer: the text, the images and the game tree. */
 const CAPS = {
   text_max_bytes: 163840,
@@ -99,13 +98,14 @@ const PATCH_TO = [
   '  }',
 ].join('\n');
 
-function writeStage() {
+function writeStage(browser) {
   const stage = join(OUT, '.stage');
   copyTree(join(OUT, 'game'), stage);
   const mainPath = join(stage, 'src', 'main.js');
   const src = readFileSync(mainPath, 'utf8');
   if (!src.includes(PATCH_FROM)) throw new Error('main.ts: game/src/main.js has no boot() to stage a shot in');
   writeFileSync(mainPath, src.replace(PATCH_FROM, PATCH_TO));
+  void browser;
 }
 
 // ---------------------------------------------------------------- the shots
@@ -116,7 +116,7 @@ function writeStage() {
  */
 function shotUrl(shot) {
   const page = join(OUT, '.stage', 'index.html').split(sep).join('/');
-  return `file://${page}?shot=${shot}`;
+  return `${page}?shot=${shot}`;
 }
 
 /**
@@ -155,16 +155,15 @@ function captureShots() {
   mkdirSync(dir, { recursive: true });
 
   for (const { name, shot } of SHOTS) {
-    // A PNG first: it is the lossless render, and the cap is generous enough for
-    // a 1280x480 flat-colour board. A JPEG ladder follows when one is not.
+    // A PNG, lossless: the cap is generous enough for a 1280x480 flat-colour
+    // board, and a render over it is a refusal, never a blurred JPEG.
     const png = join(dir, `${name}.png`);
     chromeShot(shot, png);
     const pngBytes = statSync(png).size;
     if (pngBytes > CAPS.screenshots.max_bytes) {
-      rmSync(png prints, { force: true });
+      rmSync(png, { force: true });
       throw new Error(`main.ts: ${name}.png is ${pngBytes} bytes, over the ${CAPS.screenshots.max_bytes} cap`);
     }
-sense    pngBytes;
   }
 }
 
@@ -173,10 +172,14 @@ function writeDossier() {
 }
 
 function main() {
+  // The renderer is this machine's browser, handed in as a command line: the
+  // build never picks one, never passes domain-policy flags, and never lets it
+  // run a second pass (there is no Date, no random and no retry to make one).
+  if (CHROME === '') throw new Error('main.ts: set MAKEFUN_CHROME to the browser command that renders the game');
   mkdirSync(join(OUT, 'game'), { recursive: true });
   copyTree(join(ROOT, 'game'), join(OUT, 'game'));
-  writeStage();
-  captureShots();
+  writeStage(CHROME);
+  captureShots(CHROME);
   writeDossier();
   rmSync(join(OUT, '.stage'), { recursive: true, force: true });
   rmSync(join(OUT, '.chrome-profile'), { recursive: true, force: true });
