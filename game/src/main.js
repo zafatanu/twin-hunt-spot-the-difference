@@ -8,8 +8,9 @@
 // ?shot=1..4 stages a frozen state of this same code for the screenshots:
 // no input, a fixed clock text and preset found markers.
 
-import { SCENES, PANEL_WIDTH, PANEL_HEIGHT } from './scenes.js';
+import { SCENES, sceneById, PANEL_WIDTH, PANEL_HEIGHT } from './scenes.js';
 import { Painter, drawMarker, drawHintRing } from './render.js';
+import { Dice } from './random.js';
 import { attachInput } from './input.js';
 import { createAudio } from './audio.js';
 
@@ -25,7 +26,6 @@ const ui = {
   stage: $('stage'),
   levelName: $('levelName'),
   clock: $('clock'),
-  swapClock: $('swapClock'),
   left: $('sceneLeft'),
   right: $('sceneRight'),
   panelLeft: $('panelLeft'),
@@ -75,9 +75,16 @@ function stagedShot() {
 
 // --------------------------------------------------------------- painting
 
-// One Painter per panel. The left paints every difference normal; the right
-// switches in exactly the differences found so far, by name.
+// One Painter per panel. The left twin paints every difference normal; the
+// right twin carries every difference switched in, so the two differ in
+// exactly the places the scene declares.
 const painters = { left: new Painter(), right: new Painter() };
+
+function variantOf(scene, on) {
+  const out = {};
+  if (on) for (const d of scene.differences) out[d.id] = true;
+  return out;
+}
 
 function paintPanel(canvas, side) {
   const painter = painters[side];
@@ -87,6 +94,9 @@ function paintPanel(canvas, side) {
   painter.width = PANEL_WIDTH;
   painter.height = PANEL_HEIGHT;
   painter.seed = state.scene.seed;
+  painter.dice = new Dice(state.scene.seed);
+  painter.names = new Set();
+  painter.variant = variantOf(state.scene, side === 'right');
   state.scene.paint(painter);
 }
 
@@ -115,6 +125,31 @@ function paintMarkers() {
       drawHintRing(ctxR, x, y, hint.r);
     }
   }
+  if (state.pointer.shown && state.mode === 'play') {
+    drawCursor(ctxL, state.pointer.x, state.pointer.y);
+    drawCursor(ctxR, state.pointer.x, state.pointer.y);
+  }
+}
+
+/** The keyboard cursor: a cream ring with four ticks, on both panels. */
+function drawCursor(ctx, x, y) {
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(246, 221, 168, 0.9)';
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 21, y);
+  ctx.lineTo(x - 9, y);
+  ctx.moveTo(x + 9, y);
+  ctx.lineTo(x + 21, y);
+  ctx.moveTo(x, y - 21);
+  ctx.lineTo(x, y - 9);
+  ctx.moveTo(x, y + 9);
+  ctx.lineTo(x, y + 21);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // --------------------------------------------------------------- HUD
@@ -142,7 +177,6 @@ function renderHud() {
   ui.remainingWord.textContent = remaining === 0 ? 'all found!' : remaining === 1 ? 'last one to find' : 'to find';
   ui.counter.classList.toggle('counter-done', remaining === 0);
   ui.clock.textContent = clockText(state.seconds);
-  ui.swapClock.textContent = clockText(state.seconds);
   ui.strikeDots.textContent = '●'.repeat(state.strikes) + '○'.repeat(MAX_STRIKES - state.strikes);
   ui.scoreNum.textContent = String(starsFor(state.seconds, state.strikes));
   ui.hintLeft.textContent = String(state.hints);
@@ -302,6 +336,9 @@ function buildThumbs() {
     painter.width = PANEL_WIDTH;
     painter.height = PANEL_HEIGHT;
     painter.seed = scene.seed;
+    painter.dice = new Dice(scene.seed);
+    painter.names = new Set();
+    painter.variant = {};
     scene.paint(painter);
     THUMB_SRC.push({ scene, src: off });
   }

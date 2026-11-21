@@ -107,6 +107,35 @@ export function scatterMarks(ctx, dice, x, y, w, h, count, color, alpha, size = 
   ctx.restore();
 }
 
+/** A gold ring with a tick over a difference the player has found. */
+export function drawMarker(ctx, x, y, r) {
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#E9B957';
+  circleAt(ctx, x, y, r + 6);
+  ctx.stroke();
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.42, y + r * 0.02);
+  ctx.lineTo(x - r * 0.06, y + r * 0.38);
+  ctx.lineTo(x + r * 0.48, y - r * 0.34);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A dashed turquoise ring around the difference a hint points at. */
+export function drawHintRing(ctx, x, y, r) {
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#369D91';
+  ctx.setLineDash([9, 7]);
+  circleAt(ctx, x, y, r + 10);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export class Painter {
   /**
    * @param {CanvasRenderingContext2D} ctx
