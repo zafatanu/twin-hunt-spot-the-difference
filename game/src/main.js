@@ -410,3 +410,64 @@ function renderLevels() {
     thumb.getContext('2d').drawImage(src, 0, 0);
   }
 }
+
+// --------------------------------------------------------------- boot & staging
+
+// A ?shot=N view: the page boots straight into a staged state, draws it once and
+// plays nothing. No clock runs, no sound enters, a click finds nothing and the
+// HUD reports a whole puzzle, so the render is a still of the game, not play.
+function paintStaged(staged) {
+  state.scene = sceneById(staged.scene) ?? SCENES[0];
+  state.mode = staged.levels === true ? 'levels' : 'play';
+  state.found = new Set(staged.found ?? []);
+  state.hint = staged.hint ?? null;
+  state.hints = HINTS_PER_LEVEL - (state.hint === null ? 0 : 1);
+  state.shot = staged.number;
+  state.seconds = 0;
+  state.ticking = false;
+  renderHud();
+  for (const [id, seconds] of Object.entries(staged.progress ?? {})) best.set(id, seconds);
+  paintPanel(ui.left, 'left');
+  paintPanel(ui.right, 'right');
+  paintMarkers();
+  ui.clock.textContent = staged.clock ?? '00:00';
+  if (state.mode === 'levels') renderLevels();
+}
+
+export function boot() {
+  const staged = stagedShot();
+  if (staged !== null) {
+    paintStaged(staged);
+    return;
+  }
+  attachInput({
+    refs: { left: ui.left, right: ui.right, hintBtn: ui.hintBtn, levelsBtn: ui.levelsBtn, overlay: ui.overlay, stage: ui.stage },
+    onFind: (x, y) => findAt(x, y),
+    onCursor: (pointer) => {
+      state.pointer = pointer;
+      paintMarkers();
+    },
+    onHint: () => useHint(),
+    onLevels: () => {
+      if (state.mode === 'levels') {
+        state.mode = 'play';
+        render();
+      } else {
+        state.mode = 'levels';
+        render();
+      }
+    },
+    onPick: (i) => {
+      const scene = SCENES[i];
+      if (scene !== undefined) startLevel(scene);
+    },
+    onNext: () => {
+      const next = SCENES[levelIndex() + 1];
+      if (next !== undefined) startLevel(next);
+    },
+    onReplay: () => startLevel(state.scene),
+  });
+  startLevel(SCENES[0]);
+}
+
+boot();
